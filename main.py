@@ -1,9 +1,10 @@
 import cv2
 import numpy as np
-import time
 import subprocess
 import glob
 from PIL import Image as im
+from pynput.keyboard import Key, Listener
+from pynput import keyboard 
 
 def getdim():
     global t_width, t_height
@@ -27,6 +28,12 @@ def getdim():
 
     t_height = int(stdout)
 
+
+def gracefulquit():
+    print(clear)
+    print('releasing webcam')
+    vid.release()
+
 cameralist = glob.glob("/dev/video*")
 if not cameralist:
     print("You do not have a working camera")
@@ -49,21 +56,62 @@ if not vid.isOpened():
 # symbols = "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,\"^`'. "
 symbols = '@#$%?*+;:,. '
 print('inverted? Y/n')
+clear = "\033[H\033[J"
 if input() != 'n':
     symbols = symbols[::-1]
 symlen = len(symbols)
+output = ""
+
+def save(filename, frame):
+    textframe = ""
+    textframeraw = ""
+    frame = np.asarray(im.fromarray(frame).convert('L'))
+    res = cv2.resize(frame, dsize=(t_width-1, t_height-1), interpolation=cv2.INTER_AREA)
+    
+    for row in res:
+        for pixel in row:
+            ind = round((pixel / 255) * (symlen-1))
+            textframe += symbols [ ind ]
+        textframe += "\n"
+    
+    with open(filename, 'w') as f:
+        f.write(textframe)
+    
+    for row in frame:
+        for pixel in row:
+            ind = round((pixel / 255) * (symlen-1))
+            textframeraw += symbols [ ind ]
+        textframeraw += "\n"
+    
+    with open(filename + '.raw', 'w') as f:
+        f.write(textframeraw)
+    
+def click(key): 
+    try:
+        if key.char == 'q': 
+            gracefulquit()
+            return False
+    except AttributeError:
+        if key == Key.space: 
+            save('outputfile',frame)
+  
+# Collect all event until released 
+
+listener = keyboard.Listener(
+    on_press=click)
+listener.start()
 
 try:
     while(True):
-        ret, frame = vid.read()
         getdim()
+        ret, frame = vid.read()
       
         height = len(frame)
         width = len(frame[0])
 
         res = cv2.resize(frame, dsize=(t_width-1, t_height-1), interpolation=cv2.INTER_AREA)
         res = np.asarray(im.fromarray(res).convert('L'))
-        output = ("\033[H\033[J") # clear screen
+        output = (clear) # clear screen
         for row in res:
             for pixel in row:
                 ind = round((pixel / 255) * (symlen-1))
@@ -71,17 +119,8 @@ try:
                 output+=symbols [ ind ]
             output+="\n"
         print(output,end="")
-        # Display the resulting frame
-        # cv2.imshow('frame', edges)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
 
-except KeyboardInterrupt:
+except (KeyboardInterrupt, TypeError) as e:
     # After the loop release the cap object
     # Destroy all the windows
-    print('releasing webcam')
-    vid.release()
-    cv2.destroyAllWindows()
-
-
-  
+    gracefulquit()

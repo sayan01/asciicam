@@ -1,0 +1,5 @@
+asciicam.*
+*.png
+outputfile*
+!banner.png
+!thumb.png
