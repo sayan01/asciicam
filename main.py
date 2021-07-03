@@ -1,3 +1,4 @@
+#!/bin/env python3
 import cv2
 import numpy as np
 import subprocess
@@ -48,7 +49,7 @@ else:
         print('invalid choice')
         exit(1)
     else:
-        vid = cv2.VideoCapture(choice)
+        vid = cv2.VideoCapture(cameralist[choice])
 
 if not vid.isOpened():
     raise Exception("Could not open video device")
